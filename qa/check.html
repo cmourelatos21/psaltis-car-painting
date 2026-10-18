@@ -1,0 +1,56 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Psaltis browser checks</title></head><body><pre id="qa-results">RUNNING</pre><iframe id="site" title="Website under test" src="/" style="border:0;width:1440px;height:900px"></iframe><script>
+(async () => {
+ const results=[]; const frame=document.getElementById('site'); await new Promise(r=>frame.onload=r);
+ let d=frame.contentDocument,w=frame.contentWindow; const $=s=>d.querySelector(s); const wait=()=>new Promise(r=>setTimeout(r,150));
+ const check=(label,condition)=>results.push({label,pass:!!condition});
+ const textFitsBox=el=>{const box=el.getBoundingClientRect(),range=d.createRange();range.selectNodeContents(el);return box.width>0&&Array.from(range.getClientRects()).filter(r=>r.width>0).every(r=>r.left>=box.left-1&&r.right<=box.right+1&&r.right<=w.innerWidth+1)};
+ const errors=[]; w.addEventListener('error',e=>errors.push(e.message));
+ check('One main heading',d.querySelectorAll('h1').length===1);
+ for(const img of d.images){img.loading='eager';} await Promise.all(Array.from(d.images).map(i=>i.complete?Promise.resolve():new Promise(r=>{i.onload=r;i.onerror=r;}))); check('All images loaded',Array.from(d.images).every(i=>i.complete&&i.naturalWidth>0));
+ check('All internal links resolve',Array.from(d.querySelectorAll('a[href^="#"]')).every(a=>d.getElementById(a.hash.slice(1))));
+ check('Six paint and bodywork services',d.querySelectorAll('.service-card').length===6&&Array.from(d.querySelectorAll('.service-card')).every(a=>/paint|panel|dent|bumper|scratch/i.test(a.dataset.service)));
+ check('BMW paint-preparation visual is labeled illustrative',$('.hero-image').alt.includes('BMW')&&/Illustrative workshop image/i.test($('.hero-caption').textContent));
+ check('Labeled workshop and completed-work photo slots',d.querySelectorAll('.photo-slot').length===3&&Array.from(d.querySelectorAll('.photo-slot figcaption')).every(c=>/Placeholder/i.test(c.textContent)));
+ check('No mechanical service claims',!/diagnostics|brake repairs|engine repairs|oil changes|routine maintenance|suspension/i.test(d.body.innerText));
+ check('No fabricated review rating',!d.querySelector('[itemprop="ratingValue"]')&&$('#review-content').textContent.includes('No testimonials or ratings have been provided yet'));
+ for(const width of [1440,1024,768,320,390]){
+  frame.style.width=width+'px';frame.src='/?qa-width='+width;await new Promise(r=>frame.onload=r);
+  d=frame.contentDocument;w=frame.contentWindow;w.addEventListener('error',e=>errors.push(e.message));await wait();
+  check('No horizontal overflow at '+width+'px',d.documentElement.scrollWidth<=d.documentElement.clientWidth+1);
+  check('Headline fits at '+width+'px',$('h1').getBoundingClientRect().right<=w.innerWidth+1);
+  check('Booking form fits at '+width+'px',$('#booking').getBoundingClientRect().right<=w.innerWidth+1);
+  if(width<=390)check('Mobile booking button has right inset at '+width+'px',$('.mobile-booking .button').getBoundingClientRect().right<=w.innerWidth-12+1);
+  check('Hero copy paints inside its box at '+width+'px',textFitsBox($('.hero-copy')));
+  check('Services heading paints inside its box at '+width+'px',textFitsBox($('#services-title')));
+  check('Every approach item paints inside its box at '+width+'px',Array.from(d.querySelectorAll('.approach-list p')).every(p=>textFitsBox(p)&&p.getBoundingClientRect().right<=w.innerWidth+1));
+ }
+ const menu=$('.menu-toggle');menu.click();
+ check('Mobile menu opens',menu.getAttribute('aria-expanded')==='true'&&!$('#mobile-menu').hidden);
+ d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+ check('Escape closes mobile menu',menu.getAttribute('aria-expanded')==='false'&&$('#mobile-menu').hidden);
+ menu.click();$('#mobile-menu a').click();
+ check('Navigation closes mobile menu',$('#mobile-menu').hidden);
+ check('Mobile booking visible',w.getComputedStyle($('.mobile-booking')).display==='flex');
+ for(const a of d.querySelectorAll('.service-card')){a.click();await wait();check('Prefill: '+a.dataset.service+' (selected '+$('#service').value+')',$('#service').value===a.dataset.service);}
+ const form=$('#booking-form');
+ form.requestSubmit();check('Empty fields cannot submit',$('#enquiry-result').hidden);
+ $('#name').value='Test Driver';$('#vehicle').value='Test vehicle 2020';$('#phone').value='invalid number';
+ form.requestSubmit();check('Invalid phone cannot submit',$('#enquiry-result').hidden&&!$('#phone').checkValidity());
+ $('#phone').value='+357 99 123456';$('#phone').dispatchEvent(new w.Event('input'));
+ $('#name').value='   ';form.requestSubmit();check('Whitespace name rejected',$('#enquiry-result').hidden&&!$('#name').checkValidity());
+ $('#name').value='Test Driver';$('#name').dispatchEvent(new w.Event('input'));
+ $('#message').value='<script>unsafe</'+'script>';
+ form.requestSubmit();
+ check('Valid enquiry displays review',!$('#enquiry-result').hidden&&form.hidden);
+ check('Review contains entered details',$('#enquiry-summary').textContent.includes('Test Driver')&&$('#enquiry-summary').textContent.includes('+357 99 123456'));
+ check('Input rendered as text',$('#enquiry-summary').querySelector('script')===null&&$('#enquiry-summary').textContent.includes('<script>'));
+ check('No false booking confirmation',$('#result-description').textContent.includes('not a confirmed booking'));
+ check('No unconfigured email link', $('#email-enquiry').hidden);
+ check('No placeholder telephone link',!d.querySelector('a[href^="tel:"]'));
+ $('#edit-enquiry').click();
+ check('Editing preserves input',!form.hidden&&$('#name').value==='Test Driver'&&$('#vehicle').value==='Test vehicle 2020');
+ check('Reduced motion honored',w.matchMedia('(prefers-reduced-motion: reduce)').matches&&w.getComputedStyle($('html')).scrollBehavior==='auto'&&w.getComputedStyle($('h1')).animationName==='none');
+ const serviceHeading=$('#services-title');serviceHeading.scrollIntoView({block:'center'});await wait();check('Services heading clears fixed booking bar',serviceHeading.getBoundingClientRect().bottom<=w.innerHeight-$('.mobile-booking').getBoundingClientRect().height+1);check('No runtime errors',errors.length===0);
+ document.getElementById('qa-results').textContent=JSON.stringify({passed:results.filter(r=>r.pass).length,failed:results.filter(r=>!r.pass),checks:results},null,2);
+})().catch(e=>document.getElementById('qa-results').textContent='ERROR: '+e.stack);
+</script></body></html>

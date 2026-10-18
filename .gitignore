@@ -1,0 +1,14 @@
+node_modules/
+qa/*
+!qa/check.html
+!qa/mobile.html
+!qa/desktop.html
+.openai/
+.env
+.env.*
+!.env.example
+docs/*-original.png
+docs/*-preview.png
+docs/legacy-*
+*.tar.gz
+*.zip
