@@ -47,6 +47,8 @@ For browser regression checks, run `node scripts/serve.mjs --qa` and open `http:
 
 ## Hosting
 
+For GitHub Pages, use the included `.github/workflows/deploy-pages.yml` workflow and set the repository's **Settings > Pages > Source** to **GitHub Actions**. The workflow publishes `dist/` after checking the website files. See [GitHub Pages setup](docs/github-pages.md).
+
 The entire `dist/` directory is ready for static hosting. This v2 copy has not been published. The copied `.openai/hosting.json` belongs to the original project and is not a v2 deployment record.
 
 ## Images
